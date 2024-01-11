@@ -21,6 +21,14 @@ the vehicle, which can vary between installations. Estimating these angles is es
 of the vehicle. The best way to start estimating these values is to predict the direction of motion in camera
 frame. More info  can be found in [this readme](https://github.com/commaai/openpilot/tree/master/common/transformations).
 
+Method
+------
+The algorithm begins by computing the optical flow between two successive frames, followed by filtering the motion in certain parts of the frame and moving vehicles to determine the predominant flow direction in the frame. Since it takes too long to do exhaustive search to find this converging point some clever optimization methods are applied. Subsequently, pitch and yaw angles are derived based on this focal point. Because of the noise in pitch angles, an extra layer of data filtering is implemented through various techniques, including moving average, median, Kalman, lowpass, and wavelet. A selection scheme of using different parametes for each filtering technique found the most effective method as median filtering, utilizing a window size of 450, achieving 8% on the labeled dataset. In the unlabeled dataset, it demonstrated  19% result.
+
+Usage
+------
+Run run_parallel.sh file to run the algorithm in parallel on first 5 videos. This will create 5 output files. Use find_best.py to find the best performing method on the labeled dataset. Then modify run_parallel.sh to run the algorithm on unlabeled dataset.
+
 Deliverable
 -----
 

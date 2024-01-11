@@ -1,3 +1,7 @@
+################################################################################
+# Since the predictions from optical flow is too noisy this will test different 
+# filtering methods, and compare score of different methods
+################################################################################
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
@@ -12,31 +16,24 @@ def get_mse(gt, test):
     test = np.nan_to_num(test)
     return np.mean(np.nanmean((gt - test)**2, axis=0))
 
-# def score(predictions):
-#     #Use trained CNN model to make new predictions on the labeled data
+def score(predictions):
+    zero_mses = []
+    mses = []
 
-#     zero_mses = []
-#     mses = []
+    for i in range(0,5):
+        gt = np.loadtxt('./labeled/' + str(i) + '.txt')
+        mask = ~np.isnan(gt).any(axis=1)
+        gt = gt[mask]
+        zero_mses.append(get_mse(gt, np.zeros_like(gt)))
 
-#     for i in range(0,5):
-#         gt = np.loadtxt('./labeled/' + str(i) + '.txt')
-#         mask = ~np.isnan(gt).any(axis=1)
-#         gt = gt[mask]
-#         zero_mses.append(get_mse(gt, np.zeros_like(gt)))
+        test = predictions[i][mask]
+        mses.append(get_mse(gt, test))
 
-#         test = predictions[i][mask]
-#         mses.append(get_mse(gt, test))
-
-#     # print(zero_mses)
-#     # print(mses)
-
-#     percent_err_vs_all_zeros = 100*np.mean(mses)/np.mean(zero_mses)
-#     print(f'YOUR ERROR SCORE IS {percent_err_vs_all_zeros:.2f}% (lower is better)')
-#     return percent_err_vs_all_zeros
+    percent_err_vs_all_zeros = 100*np.mean(mses)/np.mean(zero_mses)
+    print(f'YOUR ERROR SCORE IS {percent_err_vs_all_zeros:.2f}% (lower is better)')
+    return percent_err_vs_all_zeros
 
 def score(predictions):
-    # Use trained CNN model to make new predictions on the labeled data
-
     zero_mses_dim1 = []
     zero_mses_dim2 = []
     mses_dim1 = []
@@ -123,10 +120,8 @@ def filter_time_series(data, method='moving_average', axis=1, **kwargs):
         b = np.apply_along_axis(lambda x: np.median(np.lib.stride_tricks.sliding_window_view(x, (850,)), axis=1), axis, data)
         b = interpolate_to_original_size(1200, b, axis=1)
         result = np.concatenate((b[:, :, 0, np.newaxis], a[:, :, 1, np.newaxis]), axis=2)
-        print('aaaaaaaaaaa')
         for i, matrix in enumerate(result):
             # Generate a filename based on the index (i)
-            print('bbbbbbbbbbbb', matrix)
             j = i+5
             filename = f'submit/{j}.txt'
             
@@ -184,7 +179,6 @@ def filter_time_series(data, method='moving_average', axis=1, **kwargs):
         average = np.mean(data, axis=1, keepdims=True)
         print(average.shape)
         constant_average = np.repeat(average, data.shape[1], axis=1)
-        #print(constant_average.shape)
         return constant_average
     else:
         raise ValueError("Invalid filtering method. Choose one of: 'moving_average', 'ema', 'lowpass', 'median', 'wavelet'")
@@ -223,15 +217,13 @@ predictions = np.array([np.loadtxt(outputs_path + str(i+5) + '.txt') for i in ra
 ground_truths = np.array([np.loadtxt(labeled_path + str(i) + '.txt') for i in range(5)])
 # Define filtering methods and their parameter grids
 filter_methods = ['base', 'moving_average', 'ema', 'lowpass', 'median', 'wavelet', 'savgol', 'constant_average', 'median400_850']
-filter_methods = ['base', 'constant_average', 'median400_850']
-#filter_methods = ['base', 'moving_average', 'ema', 'lowpass', 'median', 'wavelet', 'savgol', 'average_methods']
 parameter_grids = {
     'base': {},
-    #'moving_average': {'window_size': [5, 10, 20, 50, 100, 200, 300, 400, 500, 600, 700]},
+    'moving_average': {'window_size': [5, 10, 20, 50, 100, 200, 300, 400, 500, 600, 700]},
     'moving_average': {'window_size': [400, 450, 500, 550, 600, 650, 700, 750, 800, 850, 900, 950]},
     'ema': {'alpha': [0.001, 0.01, 0.03, 0.05, 0.1, 0.2]},
     'lowpass': {'cutoff_frequency': [0.01, 0.02, 0.03, 0.04, 0.05], 'order': [1, 2, 3, 4, 5]},
-    #'median': {'window_size': [5, 10, 20, 50, 100, 200, 300, 400, 500, 600, 700]},
+    'median': {'window_size': [5, 10, 20, 50, 100, 200, 300, 400, 500, 600, 700]},
     'median': {'window_size': [400, 450, 500, 550, 600, 650, 700, 750, 800, 850, 900, 950]},
     'wavelet': {'wavelet': ['db2', 'db4', 'db6'], 'level': [2, 6, 8], 'threshold': [0.05, 0.3, 1]},
     'kalman': {'process_variance': [1e-6, 5e-6, 1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 1e-2], 'measurement_variance': [1, 5, 10, 20, 50, 100, 200, 1000]},
@@ -256,8 +248,7 @@ for method in filter_methods:
         # Evaluate the filtered predictions
         interpolated_data = interpolate_to_original_size(1200, filtered_predictions, axis=1)
         assert interpolated_data.shape == (5, 1200,2), (interpolated_data.shape, predictions.shape)
-        #score_result = score(interpolated_data)
-        score_result = 0
+        score_result = score(interpolated_data)
         # Store the results
         results[(method, frozenset(params.items()))] = (score_result, interpolated_data)
 
